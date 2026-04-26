@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stream LLM — Research Tool</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: system-ui, -apple-system, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; background: #0f172a; color: #e2e8f0; }
+        h1 { margin-bottom: 8px; font-size: 1.8rem; }
+        .subtitle { color: #94a3b8; margin-bottom: 24px; font-size: 0.9rem; }
+        #output { white-space: pre-wrap; border: 1px solid #334155; background: #1e293b; padding: 24px; min-height: 200px; border-radius: 12px; line-height: 1.7; margin-bottom: 16px; }
+        #input { width: 100%; padding: 14px; border-radius: 12px; border: 1px solid #334155; background: #1e293b; color: #e2e8f0; font-size: 1rem; resize: vertical; min-height: 80px; }
+        button { margin-top: 12px; padding: 12px 28px; border-radius: 10px; border: none; background: #3b82f6; color: white; font-size: 1rem; cursor: pointer; font-weight: 500; }
+        button:disabled { background: #475569; cursor: not-allowed; }
+        .loading { color: #94a3b8; }
+        .error { color: #f87171; }
+        .badge { display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 500; }
+        .badge-live { background: #065f46; color: #6ee7b7; }
+    </style>
+</head>
+<body>
+    <h1>🧠 Stream LLM</h1>
+    <p class="subtitle">
+        Research assistant — runs in your browser. No API keys, no rate limits.
+        <span id="status-badge" class="badge badge-live">LIVE</span>
+    </p>
+    
+    <div id="output">
+        <span class="loading">Ready. Enter a research question below.</span>
+    </div>
+    
+    <textarea id="input" rows="3" placeholder="e.g., Summarize the key findings of the Bitter Lesson paper..."></textarea>
+    <button id="generate-btn" onclick="runInference()">Generate</button>
+
+    <script type="module">
+        import { StreamWeightManager } from "./shard-manager.js";
+
+        const manager = new StreamWeightManager({
+            jumpstartUrl: "https://stream-llm-gvta.onrender.com"
+        });
+
+        try {
+            await manager.init();
+            document.getElementById("status-badge").textContent = "GPU READY";
+            document.getElementById("status-badge").className = "badge badge-live";
+        } catch (e) {
+            document.getElementById("status-badge").textContent = "NO GPU";
+            document.getElementById("status-badge").className = "badge";
+            document.getElementById("output").innerHTML = 
+                `<span class="error">⚠️ ${e.message}</span>`;
+            document.getElementById("generate-btn").disabled = true;
+        }
+
+        window.runInference = async function() {
+            const prompt = document.getElementById("input").value.trim();
+            if (!prompt) return;
+            
+            const output = document.getElementById("output");
+            const btn = document.getElementById("generate-btn");
+            
+            btn.disabled = true;
+            btn.textContent = "Generating...";
+            output.innerHTML = '<span class="loading">Querying jumpstart server...</span>';
+            
+            try {
+                await manager.runInference(prompt, (token, isFirst) => {
+                    if (isFirst) {
+                        output.innerHTML = token;
+                    } else {
+                        output.innerHTML += " " + token;
+                    }
+                });
+            } catch (error) {
+                output.innerHTML += `\n\n<span class="error">Error: ${error.message}</span>`;
+            } finally {
+                btn.disabled = false;
+                btn.textContent = "Generate";
+            }
+        };
+    </script>
+</body>
+</html>
