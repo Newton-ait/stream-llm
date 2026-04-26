@@ -1,0 +1,7 @@
+# .gitignore
+node_modules/
+.env
+shards/shard_*.bin
+shards/model_config.json
+*.gguf
+.DS_Store
